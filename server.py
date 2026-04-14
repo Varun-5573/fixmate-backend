@@ -1,6 +1,11 @@
 from flask import Flask, request, jsonify, render_template_string, redirect, url_for, flash, Response
 from flask_cors import CORS
-import json, os, uuid, datetime, random, csv, io
+import json, os, uuid, datetime, random, csv, io, threading
+try:
+    import requests as req_lib
+    HAS_REQUESTS = True
+except:
+    HAS_REQUESTS = False
 
 app = Flask(__name__)
 app.secret_key = 'fixmate_secret_2024'
@@ -10,6 +15,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'database.json')
 BOOKINGS_PATH = os.path.join(BASE_DIR, 'bookings.json')
 
+# Cloud sync config
+CLOUD_URL = 'https://fixmate-backend-68dy.onrender.com'
+SYNC_SECRET = 'fm_sync_key_2024'
+IS_CLOUD = os.environ.get('RENDER', False)  # True when running on Render
+
 def load_data(path, default):
     if not os.path.exists(path): return default
     with open(path, 'r') as f:
@@ -18,6 +28,22 @@ def load_data(path, default):
 
 def save_data(path, data):
     with open(path, 'w') as f: json.dump(data, f, indent=4)
+
+def push_to_cloud(db_data):
+    """Sync local worker changes to cloud in background thread"""
+    if IS_CLOUD or not HAS_REQUESTS: return
+    try:
+        req_lib.post(f'{CLOUD_URL}/api/sync_db',
+            json={'data': db_data, 'secret': SYNC_SECRET},
+            timeout=10)
+        print('✅ Synced workers to cloud!')
+    except Exception as e:
+        print(f'⚠️ Cloud sync failed (cloud might be sleeping): {e}')
+
+def save_workers_and_sync(data):
+    """Save locally AND push to cloud so phone app gets update"""
+    save_data(DB_PATH, data)
+    threading.Thread(target=push_to_cloud, args=(data,), daemon=True).start()
 
 # ── API ENDPOINTS ────────────────────────────────────────────────────────────
 
@@ -64,9 +90,19 @@ def toggle_worker():
         for w in workers:
             if w['id'] == data.get('worker_id'):
                 w['isOnline'] = not w.get('isOnline', False)
-                save_data(DB_PATH, db)
+                save_workers_and_sync(db)
                 return jsonify({"success": True, "isOnline": w['isOnline']})
     return jsonify({"error": "Worker not found"}), 404
+
+@app.route('/api/sync_db', methods=['POST'])
+def sync_db():
+    """Receive synced worker data from local server and save it"""
+    req = request.json
+    if not req or req.get('secret') != SYNC_SECRET:
+        return jsonify({'error': 'Unauthorized'}), 403
+    save_data(DB_PATH, req.get('data', {}))
+    print('✅ Received sync from local admin')
+    return jsonify({'success': True})
 
 @app.route('/export/bookings')
 def export_bookings():
@@ -118,8 +154,8 @@ def admin():
                     if exp: w['experience'] = exp
                     w['isOnline'] = request.form.get('is_online') == 'on'
                     break
-            save_data(DB_PATH, data)
-            flash("Worker updated! Phone app will refresh automatically.", "success")
+            save_workers_and_sync(data)
+            flash("✅ Worker updated! Syncing to cloud... Phone app will update!", "success")
         elif action == 'add':
             service = request.form.get('service')
             name = request.form.get('name', 'Worker')
@@ -138,14 +174,14 @@ def admin():
             }
             if service not in data: data[service] = []
             data[service].append(new_worker)
-            save_data(DB_PATH, data)
-            flash(f"New worker '{name}' added!", "success")
+            save_workers_and_sync(data)
+            flash(f"✅ Worker '{name}' added! Syncing to cloud...", "success")
         elif action == 'delete':
             service = request.form.get('service')
             worker_id = request.form.get('worker_id')
             data[service] = [w for w in data.get(service, []) if w['id'] != worker_id]
-            save_data(DB_PATH, data)
-            flash("Worker removed!", "info")
+            save_workers_and_sync(data)
+            flash("🗑️ Worker removed! Syncing to cloud...", "info")
         return redirect(url_for('admin'))
 
     pending_count = sum(1 for b in bookings if b.get('status') == 'Pending')

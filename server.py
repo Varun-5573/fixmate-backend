@@ -155,22 +155,22 @@ def handle_support():
         data = request.json
         msg = data.get('message', '').lower().strip()
 
-        # Greetings - no ticket, just reply
+        # Greetings
         if msg in ["hi", "hello", "hey", "hola", "hi there", "help", "hey there"]:
-            return jsonify({"success": True, "reply": "Hello! Welcome to FixMate Support \U0001f44b How can we help you today?"})
-
-        # Smart chatbot replies
-        reply = "Your message has been received! Our admin will review it and reply to you here shortly."
-        if 'booking' in msg:
-            reply = "I see you need help with a booking! Our admin is reviewing this and will reply here shortly."
-        elif 'payment' in msg:
-            reply = "For payment issues, our admin will contact you within 2 hours to resolve this."
-        elif 'worker' in msg:
-            reply = "Your worker issue has been escalated to our Admin. They will take action immediately."
-        elif 'app' in msg or 'not working' in msg or 'crash' in msg:
-            reply = "I have logged a technical issue. Our team will reply here with a fix soon."
-        elif 'cancel' in msg:
-            reply = "Our admin will confirm the cancellation and any refunds shortly."
+            reply = "Hello! Welcome to FixMate Support \U0001f44b How can we help you today?"
+        else:
+            # Smart chatbot replies
+            reply = "Your message has been received! Our admin will review it and reply to you here shortly."
+            if 'booking' in msg:
+                reply = "I see you need help with a booking! Our admin is reviewing this and will reply here shortly."
+            elif 'payment' in msg:
+                reply = "For payment issues, our admin will contact you within 2 hours to resolve this."
+            elif 'worker' in msg:
+                reply = "Your worker issue has been escalated to our Admin. They will take action immediately."
+            elif 'app' in msg or 'not working' in msg or 'crash' in msg:
+                reply = "I have logged a technical issue. Our team will reply here with a fix soon."
+            elif 'cancel' in msg:
+                reply = "Our admin will confirm the cancellation and any refunds shortly."
 
         ticket = {
             "id": "TKT-" + str(uuid.uuid4())[:6].upper(),

@@ -45,11 +45,33 @@ def save_workers_and_sync(data):
     save_data(DB_PATH, data)
     threading.Thread(target=push_to_cloud, args=(data,), daemon=True).start()
 
+def keep_alive_ping():
+    """Ping our own Render server every 14 min to prevent sleep"""
+    import time
+    time.sleep(60)  # Wait for server to fully start
+    while True:
+        try:
+            if HAS_REQUESTS:
+                req_lib.get(f'{CLOUD_URL}/health', timeout=15)
+                print('💓 Keep-alive ping sent — server stays awake!')
+        except Exception as e:
+            print(f'Keep-alive ping failed: {e}')
+        import time; time.sleep(14 * 60)  # Every 14 minutes
+
+# Start keep-alive ONLY on Render cloud (not local)
+if IS_CLOUD:
+    threading.Thread(target=keep_alive_ping, daemon=True).start()
+    print('🔄 Keep-alive thread started — server will NOT sleep!')
+
 # ── API ENDPOINTS ────────────────────────────────────────────────────────────
 
 @app.route('/api/workers', methods=['GET'])
 def get_workers():
     return jsonify(load_data(DB_PATH, {}))
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "alive"})
 
 @app.route('/api/book', methods=['POST'])
 def create_booking():

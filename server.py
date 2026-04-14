@@ -11,9 +11,15 @@ app = Flask(__name__)
 app.secret_key = 'fixmate_secret_2024'
 CORS(app)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+import sys
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'database.json')
 BOOKINGS_PATH = os.path.join(BASE_DIR, 'bookings.json')
+PROFILE_PATH = os.path.join(BASE_DIR, 'profile.json')
+SUPPORT_PATH = os.path.join(BASE_DIR, 'support.json')
 
 # Cloud sync config
 CLOUD_URL = 'https://fixmate-backend-68dy.onrender.com'
@@ -36,9 +42,9 @@ def push_to_cloud(db_data):
         req_lib.post(f'{CLOUD_URL}/api/sync_db',
             json={'data': db_data, 'secret': SYNC_SECRET},
             timeout=10)
-        print('✅ Synced workers to cloud!')
+        print('Synced workers to cloud!')
     except Exception as e:
-        print(f'⚠️ Cloud sync failed (cloud might be sleeping): {e}')
+        print(f'Cloud sync failed (cloud might be sleeping): {e}')
 
 def save_workers_and_sync(data):
     """Save locally AND push to cloud so phone app gets update"""
@@ -61,7 +67,7 @@ def keep_alive_ping():
 # Start keep-alive ONLY on Render cloud (not local)
 if IS_CLOUD:
     threading.Thread(target=keep_alive_ping, daemon=True).start()
-    print('🔄 Keep-alive thread started — server will NOT sleep!')
+    print('Keep-alive thread started - server will NOT sleep!')
 
 # ── API ENDPOINTS ────────────────────────────────────────────────────────────
 
@@ -123,8 +129,50 @@ def sync_db():
     if not req or req.get('secret') != SYNC_SECRET:
         return jsonify({'error': 'Unauthorized'}), 403
     save_data(DB_PATH, req.get('data', {}))
-    print('✅ Received sync from local admin')
+    print('Received sync from local admin')
     return jsonify({'success': True})
+
+@app.route('/api/profile', methods=['GET', 'POST'])
+def manage_profile():
+    if request.method == 'POST':
+        save_data(PROFILE_PATH, request.json)
+        return jsonify({"success": True})
+    return jsonify(load_data(PROFILE_PATH, {"name": "Village Pro User", "email": "user@villagepro.com", "phone": "+91 9000000000", "location": "Ramagundam, Telangana"}))
+
+@app.route('/api/my_bookings', methods=['GET'])
+def my_bookings():
+    # In a real app this would filter by user ID, here we return all for demonstration or filter by phone
+    phone = request.args.get('phone')
+    bookings = load_data(BOOKINGS_PATH, [])
+    if phone:
+        bookings = [b for b in bookings if b.get('customer_phone') == phone]
+    return jsonify(bookings)
+
+@app.route('/api/support', methods=['GET', 'POST'])
+def handle_support():
+    tickets = load_data(SUPPORT_PATH, [])
+    if request.method == 'POST':
+        data = request.json
+        msg = data.get('message', '').lower()
+        
+        # Chatbot basic logic
+        reply = "Our support team has received your ticket and an Admin will review it shortly in the backend!"
+        if 'booking' in msg: reply = "I see you need help with a booking! Can you provide the Booking ID? Our admin will review this."
+        elif 'payment' in msg: reply = "For payment issues, please don't worry. An admin will contact you to securely resolve this."
+        elif 'worker' in msg: reply = "If you have issues with a worker, please leave a review. Our team monitors all worker ratings!"
+        
+        ticket = {
+            "id": "TKT-" + str(uuid.uuid4())[:6].upper(),
+            "date": datetime.datetime.now().strftime("%Y-%m-%d %I:%M %p"),
+            "customer": data.get('customer', 'User'),
+            "message": data.get('message', ''),
+            "reply": reply,
+            "status": "Open"
+        }
+        tickets.insert(0, ticket)
+        save_data(SUPPORT_PATH, tickets)
+        return jsonify({"success": True, "reply": reply})
+    return jsonify(tickets)
 
 @app.route('/export/bookings')
 def export_bookings():

@@ -2,7 +2,7 @@
     "electrician": [
         {
             "id": "e1",
-            "name": "adithya",
+            "name": "hh",
             "serviceType": "Electrician",
             "location": "Ramagundam",
             "rating": 4.8,
@@ -13,7 +13,7 @@
             "experience": "7 years",
             "jobsDone": 320,
             "avatarColorValue": 4294286859,
-            "initials": "AD"
+            "initials": "HH"
         },
         {
             "id": "e2",

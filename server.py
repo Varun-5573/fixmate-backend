@@ -257,6 +257,16 @@ def admin():
             data[service] = [w for w in data.get(service, []) if w['id'] != worker_id]
             save_workers_and_sync(data)
             flash("🗑️ Worker removed! Syncing to cloud...", "info")
+        elif action == 'reply_ticket':
+            tid = request.form.get('ticket_id')
+            reply_msg = request.form.get('reply_msg')
+            tickets = load_data(SUPPORT_PATH, [])
+            for t in tickets:
+                if t.get('id') == tid:
+                    t['reply'] = reply_msg
+                    break
+            save_data(SUPPORT_PATH, tickets)
+            return jsonify({"success": True})
         return redirect(url_for('admin'))
 
     pending_count = sum(1 for b in bookings if b.get('status') == 'Pending')

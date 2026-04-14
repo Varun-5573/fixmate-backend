@@ -177,6 +177,8 @@ def handle_support():
             "date": datetime.datetime.now().strftime("%Y-%m-%d %I:%M %p"),
             "customer": data.get('customer', 'User'),
             "phone": data.get('phone', ''),
+            "email": data.get('email', ''),
+            "address": data.get('address', ''),
             "message": data.get('message', ''),
             "reply": reply,
             "admin_reply": "",

@@ -138,12 +138,12 @@ class FixMateApp(ctk.CTk):
                 # Support tickets from cloud
                 cloud_tickets = []
                 try:
-                    cloud_tickets = requests.get(f"{self.CLOUD}/api/support", timeout=10).json()
+                    cloud_tickets = requests.get(f"{self.CLOUD}/api/support", timeout=25).json()
                     if isinstance(cloud_tickets, dict): cloud_tickets = []
                 except: pass
 
                 # Load any locally saved tickets too (survive Render restarts)
-                local_ticket_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "support_local.json")
+                local_ticket_path = "support_local.json"
                 try:
                     with open(local_ticket_path, 'r', encoding='utf-8') as f:
                         local_tickets = json.load(f)
@@ -295,6 +295,14 @@ class FixMateApp(ctk.CTk):
             inf.pack(side="left", fill="both", expand=True, padx=20, pady=15)
             
             ctk.CTkLabel(inf, text=f"🎫 {t.get('id', 'TKT')} - From: {t.get('customer', 'User')} ({t.get('date', '')})", font=ctk.CTkFont(size=16, weight="bold"), text_color="#F59E0B").pack(anchor="w")
+
+            details = []
+            if t.get('phone'): details.append(f"📞 {t.get('phone')}")
+            if t.get('email'): details.append(f"✉️ {t.get('email')}")
+            if t.get('address'): details.append(f"📍 {t.get('address')}")
+            if details:
+                ctk.CTkLabel(inf, text="  |  ".join(details), text_color="#CBD5E1", font=("Inter", 13)).pack(anchor="w", pady=(2, 8))
+
             ctk.CTkLabel(inf, text=f"Customer MSG: \"{t.get('message', '')}\"", text_color="white", font=("Inter", 15, "italic")).pack(anchor="w", pady=(10,5))
             
             admin_re = t.get('admin_reply', '')
@@ -328,7 +336,7 @@ class FixMateApp(ctk.CTk):
                     json={"ticket_id": ticket_id, "reply_msg": msg}, timeout=5)
             except: pass
             # Also update local backup file
-            local_ticket_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "support_local.json")
+            local_ticket_path = "support_local.json"
             try:
                 with open(local_ticket_path, 'r', encoding='utf-8') as f:
                     tickets = json.load(f)

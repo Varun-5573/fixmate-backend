@@ -296,7 +296,13 @@ class FixMateApp(ctk.CTk):
             
             ctk.CTkLabel(inf, text=f"🎫 {t.get('id', 'TKT')} - From: {t.get('customer', 'User')} ({t.get('date', '')})", font=ctk.CTkFont(size=16, weight="bold"), text_color="#F59E0B").pack(anchor="w")
             ctk.CTkLabel(inf, text=f"Customer MSG: \"{t.get('message', '')}\"", text_color="white", font=("Inter", 15, "italic")).pack(anchor="w", pady=(10,5))
-            ctk.CTkLabel(inf, text=f"📝 Your Reply: \"{t.get('reply', '')}\"", text_color="#A78BFA", font=("Inter", 14)).pack(anchor="w")
+            
+            admin_re = t.get('admin_reply', '')
+            bot_re = t.get('reply', '')
+            if admin_re:
+                ctk.CTkLabel(inf, text=f"✅ Sent by Admin: \"{admin_re}\"", text_color="#10B981", font=("Inter", 14)).pack(anchor="w")
+            elif bot_re:
+                ctk.CTkLabel(inf, text=f"🤖 Bot Auto-Reply: \"{bot_re}\"", text_color="#A78BFA", font=("Inter", 14)).pack(anchor="w")
 
             # Right Reply Action
             acts = ctk.CTkFrame(c, fg_color="transparent")

@@ -154,30 +154,53 @@ def handle_support():
     if request.method == 'POST':
         data = request.json
         msg = data.get('message', '').lower().strip()
-        
-        # Intercept greetings without making a full support ticket immediately
-        if msg in ["hi", "hello", "hey", "hola", "hi there"]:
-            return jsonify({"success": True, "reply": "Hello! Welcome to FixMate Support. 👋 How can we help you today?"})
-        
-        # Chatbot basic logic for actual problems
-        reply = "Our support team has received your ticket and an Admin will review it shortly in the backend!"
-        if 'booking' in msg: reply = "I see you need help with a booking! Can you provide the Booking ID? Our admin is reviewing this now."
-        elif 'payment' in msg: reply = "For payment or refund issues, please don't worry. An admin will contact you to securely resolve this within 2 hours."
-        elif 'worker' in msg: reply = "If you have an issue with a worker or their behavior, I have escalated this directly to our Admins. They will monitor this worker."
-        elif 'app' in msg or 'not working' in msg: reply = "I've logged a technical issue. Our developers will look into this bug right away."
-        
+
+        # Greetings - no ticket, just reply
+        if msg in ["hi", "hello", "hey", "hola", "hi there", "help", "hey there"]:
+            return jsonify({"success": True, "reply": "Hello! Welcome to FixMate Support \U0001f44b How can we help you today?"})
+
+        # Smart chatbot replies
+        reply = "Your message has been received! Our admin will review it and reply to you here shortly."
+        if 'booking' in msg:
+            reply = "I see you need help with a booking! Our admin is reviewing this and will reply here shortly."
+        elif 'payment' in msg:
+            reply = "For payment issues, our admin will contact you within 2 hours to resolve this."
+        elif 'worker' in msg:
+            reply = "Your worker issue has been escalated to our Admin. They will take action immediately."
+        elif 'app' in msg or 'not working' in msg or 'crash' in msg:
+            reply = "I have logged a technical issue. Our team will reply here with a fix soon."
+        elif 'cancel' in msg:
+            reply = "Our admin will confirm the cancellation and any refunds shortly."
+
         ticket = {
             "id": "TKT-" + str(uuid.uuid4())[:6].upper(),
             "date": datetime.datetime.now().strftime("%Y-%m-%d %I:%M %p"),
             "customer": data.get('customer', 'User'),
+            "phone": data.get('phone', ''),
             "message": data.get('message', ''),
             "reply": reply,
+            "admin_reply": "",
             "status": "Open"
         }
         tickets.insert(0, ticket)
         save_data(SUPPORT_PATH, tickets)
         return jsonify({"success": True, "reply": reply})
     return jsonify(tickets)
+
+@app.route('/api/admin_reply', methods=['POST'])
+def admin_reply_route():
+    """Admin sends custom reply to customer - phone polls and displays it"""
+    data = request.json
+    ticket_id = data.get('ticket_id')
+    reply_msg = data.get('reply_msg', '')
+    tickets = load_data(SUPPORT_PATH, [])
+    for t in tickets:
+        if t.get('id') == ticket_id:
+            t['admin_reply'] = reply_msg
+            t['status'] = 'Replied'
+            break
+    save_data(SUPPORT_PATH, tickets)
+    return jsonify({'success': True})
 
 @app.route('/export/bookings')
 def export_bookings():

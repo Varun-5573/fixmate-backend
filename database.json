@@ -1,0 +1,243 @@
+{
+    "electrician": [
+        {
+            "id": "e1",
+            "name": "bunny",
+            "serviceType": "Electrician",
+            "location": "Ramagundam",
+            "rating": 4.8,
+            "reviewCount": 132,
+            "isOnline": true,
+            "distanceKm": 0.8,
+            "phone": "+91 9000853346",
+            "experience": "7 years",
+            "jobsDone": 320,
+            "avatarColorValue": 4294286859,
+            "initials": "BU"
+        },
+        {
+            "id": "e2",
+            "name": "kkk",
+            "serviceType": "Electrician",
+            "location": null,
+            "rating": 4.5,
+            "reviewCount": 89,
+            "isOnline": true,
+            "distanceKm": 2.1,
+            "phone": "098765432",
+            "experience": "5 years",
+            "jobsDone": 210,
+            "avatarColorValue": 4293858372,
+            "initials": "SK"
+        },
+        {
+            "id": "e3",
+            "name": "Praveen Rao",
+            "serviceType": "Electrician",
+            "location": "Peddapalli",
+            "rating": 4.2,
+            "reviewCount": 54,
+            "isOnline": false,
+            "distanceKm": 5.4,
+            "phone": "+91 90001 23456",
+            "experience": "3 years",
+            "jobsDone": 120,
+            "avatarColorValue": 4287319286,
+            "initials": "PR"
+        }
+    ],
+    "plumber": [
+        {
+            "id": "p1",
+            "name": "Mahesh Goud",
+            "serviceType": "Plumber",
+            "location": "Ramagundam",
+            "rating": 4.9,
+            "reviewCount": 200,
+            "isOnline": true,
+            "distanceKm": 1.0,
+            "phone": "+91 99887 76655",
+            "experience": "10 years",
+            "jobsDone": 450,
+            "avatarColorValue": 4282086134,
+            "initials": "MG"
+        },
+        {
+            "id": "p2",
+            "name": "Ramakrishna Y",
+            "serviceType": "Plumber",
+            "location": "Mancherial",
+            "rating": 4.3,
+            "reviewCount": 67,
+            "isOnline": false,
+            "distanceKm": 4.5,
+            "phone": "+91 88001 23456",
+            "experience": "6 years",
+            "jobsDone": 190,
+            "avatarColorValue": 4279318913,
+            "initials": "RY"
+        }
+    ],
+    "cleaner": [
+        {
+            "id": "c1",
+            "name": "Anitha Devi",
+            "serviceType": "Cleaner",
+            "location": "Ramagundam",
+            "rating": 4.7,
+            "reviewCount": 95,
+            "isOnline": true,
+            "distanceKm": 1.2,
+            "phone": "+91 91234 56789",
+            "experience": "4 years",
+            "jobsDone": 280,
+            "avatarColorValue": 4279318913,
+            "initials": "AD"
+        },
+        {
+            "id": "c2",
+            "name": "Lakshmi Bai",
+            "serviceType": "Cleaner",
+            "location": "Godavarikhani",
+            "rating": 4.4,
+            "reviewCount": 73,
+            "isOnline": true,
+            "distanceKm": 2.8,
+            "phone": "+91 92345 67890",
+            "experience": "3 years",
+            "jobsDone": 160,
+            "avatarColorValue": 4294542102,
+            "initials": "LB"
+        }
+    ],
+    "carpenter": [
+        {
+            "id": "ca1",
+            "name": "Venkat Rao",
+            "serviceType": "Carpenter",
+            "location": "Ramagundam",
+            "rating": 4.6,
+            "reviewCount": 112,
+            "isOnline": true,
+            "distanceKm": 1.5,
+            "phone": "+91 93456 78901",
+            "experience": "8 years",
+            "jobsDone": 340,
+            "avatarColorValue": 4287319286,
+            "initials": "VR"
+        },
+        {
+            "id": "ca2",
+            "name": "Srinivas P",
+            "serviceType": "Carpenter",
+            "location": "Peddapalli",
+            "rating": 4.1,
+            "reviewCount": 41,
+            "isOnline": false,
+            "distanceKm": 6.0,
+            "phone": "+91 94567 89012",
+            "experience": "4 years",
+            "jobsDone": 95,
+            "avatarColorValue": 4294286859,
+            "initials": "SP"
+        }
+    ],
+    "medical": [
+        {
+            "id": "m1",
+            "name": "Dr. Priya Sharma",
+            "serviceType": "Medical",
+            "location": "Ramagundam",
+            "rating": 4.9,
+            "reviewCount": 310,
+            "isOnline": true,
+            "distanceKm": 0.5,
+            "phone": "+91 95678 90123",
+            "experience": "12 years",
+            "jobsDone": 1200,
+            "avatarColorValue": 4293858372,
+            "initials": "PS"
+        },
+        {
+            "id": "m2",
+            "name": "Dr. Anil Reddy",
+            "serviceType": "Medical",
+            "location": "Godavarikhani",
+            "rating": 4.7,
+            "reviewCount": 185,
+            "isOnline": true,
+            "distanceKm": 2.3,
+            "phone": "+91 96789 01234",
+            "experience": "9 years",
+            "jobsDone": 870,
+            "avatarColorValue": 4282086134,
+            "initials": "AR"
+        }
+    ],
+    "grocery": [
+        {
+            "id": "g1",
+            "name": "Ravi Delivery",
+            "serviceType": "Grocery",
+            "location": "Ramagundam",
+            "rating": 4.5,
+            "reviewCount": 220,
+            "isOnline": true,
+            "distanceKm": 0.7,
+            "phone": "+91 97890 12345",
+            "experience": "2 years",
+            "jobsDone": 600,
+            "avatarColorValue": 4278638292,
+            "initials": "RD"
+        }
+    ],
+    "painter": [
+        {
+            "id": "pa1",
+            "name": "Kiran Babu",
+            "serviceType": "Painter",
+            "location": "Ramagundam",
+            "rating": 4.6,
+            "reviewCount": 88,
+            "isOnline": true,
+            "distanceKm": 1.8,
+            "phone": "+91 98901 23456",
+            "experience": "6 years",
+            "jobsDone": 240,
+            "avatarColorValue": 4294542102,
+            "initials": "KB"
+        }
+    ],
+    "mechanic": [
+        {
+            "id": "me1",
+            "name": "Arun Mechanic",
+            "serviceType": "Mechanic",
+            "location": "Ramagundam",
+            "rating": 4.7,
+            "reviewCount": 150,
+            "isOnline": true,
+            "distanceKm": 1.1,
+            "phone": "+91 99012 34567",
+            "experience": "8 years",
+            "jobsDone": 400,
+            "avatarColorValue": 4285354991,
+            "initials": "AM"
+        },
+        {
+            "id": "me2",
+            "name": "Srikanth V",
+            "serviceType": "Mechanic",
+            "location": "Godavarikhani",
+            "rating": 4.3,
+            "reviewCount": 62,
+            "isOnline": false,
+            "distanceKm": 3.6,
+            "phone": "+91 90123 45678",
+            "experience": "5 years",
+            "jobsDone": 175,
+            "avatarColorValue": 4279318913,
+            "initials": "SV"
+        }
+    ]
+}

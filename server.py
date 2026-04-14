@@ -153,13 +153,18 @@ def handle_support():
     tickets = load_data(SUPPORT_PATH, [])
     if request.method == 'POST':
         data = request.json
-        msg = data.get('message', '').lower()
+        msg = data.get('message', '').lower().strip()
         
-        # Chatbot basic logic
+        # Intercept greetings without making a full support ticket immediately
+        if msg in ["hi", "hello", "hey", "hola", "hi there"]:
+            return jsonify({"success": True, "reply": "Hello! Welcome to FixMate Support. 👋 How can we help you today?"})
+        
+        # Chatbot basic logic for actual problems
         reply = "Our support team has received your ticket and an Admin will review it shortly in the backend!"
-        if 'booking' in msg: reply = "I see you need help with a booking! Can you provide the Booking ID? Our admin will review this."
-        elif 'payment' in msg: reply = "For payment issues, please don't worry. An admin will contact you to securely resolve this."
-        elif 'worker' in msg: reply = "If you have issues with a worker, please leave a review. Our team monitors all worker ratings!"
+        if 'booking' in msg: reply = "I see you need help with a booking! Can you provide the Booking ID? Our admin is reviewing this now."
+        elif 'payment' in msg: reply = "For payment or refund issues, please don't worry. An admin will contact you to securely resolve this within 2 hours."
+        elif 'worker' in msg: reply = "If you have an issue with a worker or their behavior, I have escalated this directly to our Admins. They will monitor this worker."
+        elif 'app' in msg or 'not working' in msg: reply = "I've logged a technical issue. Our developers will look into this bug right away."
         
         ticket = {
             "id": "TKT-" + str(uuid.uuid4())[:6].upper(),

@@ -314,6 +314,27 @@ def save_payment():
 def get_payments():
     return jsonify(load_data(os.path.join(BASE_DIR, 'payments.json'), []))
 
+def get_bot_reply(message):
+    msg = message.lower()
+    if any(k in msg for k in ["booking", "order", "status"]):
+        return "You can check your booking status in the 'My Bookings' section of the app. If a worker is assigned, you'll see their live status there!"
+    elif any(k in msg for k in ["pay", "money", "upi", "qr", "price"]):
+        return "Payments are done via UPI QR code after the service is completed. You'll see a 'Complete Payment' screen once the worker finishes the job."
+    elif any(k in msg for k in ["worker", "expert", "pro", "electrician", "plumber"]):
+        return "Our workers are verified experts. Once you book a service, we'll assign the nearest available professional to your location."
+    elif any(k in msg for k in ["hello", "hi", "hey", "help", "who"]):
+        return "Hello! I am FixMate's AI Assistant. How can I help you today? You can ask about bookings, payments, or services."
+    elif any(k in msg for k in ["location", "map", "gps"]):
+        return "FixMate uses your GPS to find nearby workers. Make sure your location permission is turned on for the best experience!"
+    return "I'm still learning! If you have a specific problem, please click 'Contact Human Support' and our team will help you manually."
+
+@app.route('/api/chatbot', methods=['POST'])
+def chatbot_route():
+    data = request.json or {}
+    user_message = data.get("message", "")
+    reply = get_bot_reply(user_message)
+    return jsonify({"reply": reply, "timestamp": datetime.datetime.now().isoformat()})
+
 @app.route('/api/admin_reply', methods=['POST'])
 def admin_reply_route():
     """Admin sends custom reply to customer - phone polls and displays it"""

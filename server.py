@@ -370,28 +370,31 @@ def write_chat(data):
 @app.route('/api/chat', methods=['POST'])
 def chat():
     data = request.json
-    user_msg = data.get("message", "")
-    user_id = data.get("user_id", "guest")
+    msg = data.get("message", "").lower().strip()
 
-    # Instant reply for first message
-    if user_msg.lower().strip() == "hi":
-        bot_reply = "Hello! How can I help you today?"
+    # Ultra-fast rule-based replies — NO file I/O, NO database, NO delay
+    if any(k in msg for k in ["hi", "hello", "hey", "hii", "hai", "helo"]):
+        reply = "Hello! Welcome to FixMate 👋 How can I help you?"
+    elif "payment" in msg or "pay" in msg or "upi" in msg:
+        reply = "You can pay using UPI or Cash 💳"
+    elif "booking" in msg or "book" in msg or "order" in msg:
+        reply = "Book a service from the Home screen 📱"
+    elif "worker" in msg or "plumber" in msg or "electrician" in msg:
+        reply = "Worker details are in My Bookings 👷"
+    elif "cancel" in msg or "refund" in msg:
+        reply = "To cancel, go to My Bookings and tap Cancel ❌"
+    elif "location" in msg or "gps" in msg or "near" in msg:
+        reply = "FixMate uses GPS to find nearest workers 📍"
+    elif "time" in msg or "when" in msg or "wait" in msg:
+        reply = "Workers arrive within 30-60 minutes ⏱️"
+    elif "service" in msg or "offer" in msg or "available" in msg:
+        reply = "We offer Electrical ⚡, Plumbing 🔧, Carpentry 🪚, Cleaning 🧹 and more!"
+    elif "thanks" in msg or "thank" in msg or "ok" in msg or "okay" in msg:
+        reply = "You're welcome! 😊 Anything else I can help with?"
     else:
-        bot_reply = get_bot_reply(user_msg)
+        reply = "Please wait, admin will reply shortly 👨‍💼"
 
-    chats = read_chat()
-
-    chats.append({
-        "user_id": user_id,
-        "user_message": user_msg,
-        "bot_reply": bot_reply,
-        "admin_reply": "",
-        "time": str(datetime.datetime.now())
-    })
-
-    write_chat(chats)
-
-    return jsonify({"reply": bot_reply})
+    return jsonify({"reply": reply})
 
 @app.route('/api/admin/reply', methods=['POST'])
 def admin_reply():

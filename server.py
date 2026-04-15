@@ -21,6 +21,19 @@ BOOKINGS_PATH = os.path.join(BASE_DIR, 'bookings.json')
 PROFILE_PATH = os.path.join(BASE_DIR, 'profile.json')
 SUPPORT_PATH = os.path.join(BASE_DIR, 'support.json')
 VERSION_PATH = os.path.join(BASE_DIR, 'app_version.json')
+FEATURES_PATH = os.path.join(BASE_DIR, 'features.json')
+
+# Default feature flags — all OFF by default for safety
+DEFAULT_FEATURES = {
+    "dark_mode":        False,
+    "chat_support":     False,
+    "promo_banner":     False,
+    "rating_system":    False,
+    "emergency_sos":    False,
+    "referral_program": False,
+    "wallet":           False,
+    "live_tracking":    False,
+}
 
 # Cloud sync config
 CLOUD_URL = 'https://fixmate-backend-68dy.onrender.com'
@@ -84,7 +97,7 @@ def health_check():
 DEFAULT_VERSION = {
     "version": "1.0.0",
     "is_mandatory": False,
-    "download_url": "https://github.com/yourusername/fixmate/releases/latest",
+    "download_url": "https://fixmate-backend-68dy.onrender.com/update",
     "release_notes": "Bug fixes and performance improvements!"
 }
 
@@ -119,19 +132,55 @@ def update_page():
 @app.route('/api/version', methods=['GET', 'POST'])
 def app_version():
     """GET: Flutter app checks this. POST (with secret): Admin updates version."""
+    version_data = load_data(VERSION_PATH, DEFAULT_VERSION)
+    
     if request.method == 'POST':
         req = request.json or {}
         if req.get('secret') != SYNC_SECRET:
             return jsonify({'error': 'Unauthorized'}), 403
-        version_data = {
-            "version": req.get('version', '1.0.0'),
-            "is_mandatory": req.get('is_mandatory', False),
-            "download_url": req.get('download_url', DEFAULT_VERSION['download_url']),
-            "release_notes": req.get('release_notes', DEFAULT_VERSION['release_notes'])
-        }
+        
+        # Update version data
+        version_data["version"] = req.get('version', version_data.get('version', '1.0.0'))
+        version_data["is_mandatory"] = req.get('is_mandatory', version_data.get('is_mandatory', False))
+        version_data["download_url"] = req.get('download_url', version_data.get('download_url', DEFAULT_VERSION['download_url']))
+        version_data["release_notes"] = req.get('release_notes', version_data.get('release_notes', DEFAULT_VERSION['release_notes']))
+        
         save_data(VERSION_PATH, version_data)
         return jsonify({'success': True, 'data': version_data})
-    return jsonify(load_data(VERSION_PATH, DEFAULT_VERSION))
+    
+    # Return both old and new formats for compatibility
+    return jsonify({
+        "version": version_data.get('version'),
+        "latest_version": version_data.get('version'),
+        "is_mandatory": version_data.get('is_mandatory'),
+        "force_update": version_data.get('is_mandatory'),
+        "download_url": version_data.get('download_url'),
+        "apk_url": version_data.get('download_url'),
+        "release_notes": version_data.get('release_notes')
+    })
+
+# ── FEATURE FLAGS ────────────────────────────────────────────────────────────
+
+@app.route('/api/features', methods=['GET'])
+def get_features():
+    """Flutter app reads this. Returns which features are enabled."""
+    return jsonify(load_data(FEATURES_PATH, DEFAULT_FEATURES))
+
+@app.route('/api/features/update', methods=['POST'])
+def update_features():
+    """Admin panel posts here to toggle features on/off."""
+    req = request.json or {}
+    if req.get('secret') != SYNC_SECRET:
+        return jsonify({'error': 'Unauthorized'}), 403
+    current = load_data(FEATURES_PATH, DEFAULT_FEATURES)
+    for key, val in req.get('features', {}).items():
+        if key in current or key in DEFAULT_FEATURES:
+            current[key] = bool(val)
+    # Allow adding new custom features from admin
+    for key, val in req.get('new_features', {}).items():
+        current[key] = bool(val)
+    save_data(FEATURES_PATH, current)
+    return jsonify({'success': True, 'features': current})
 
 @app.route('/api/book', methods=['POST'])
 def create_booking():
@@ -357,7 +406,8 @@ def admin():
     return render_template_string(HTML_TEMPLATE, data=data, bookings=bookings,
         pending_count=pending_count, accepted_count=accepted_count,
         rejected_count=rejected_count, total_workers=total_workers,
-        online_workers=online_workers, services_count=services_count)
+        online_workers=online_workers, services_count=services_count,
+        features_data=load_data(FEATURES_PATH, DEFAULT_FEATURES))
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -545,6 +595,9 @@ input:checked+.slider:before{transform:translateX(18px);}
     </a>
     <a class="nav-item" onclick="showSection('add')">
       <i class="fas fa-plus-circle"></i> Add Worker
+    </a>
+    <a class="nav-item" onclick="showSection('features')">
+      <i class="fas fa-toggle-on"></i> Feature Flags
     </a>
     <a class="nav-item" href="/export/bookings">
       <i class="fas fa-file-csv"></i> Export CSV
@@ -787,12 +840,55 @@ input:checked+.slider:before{transform:translateX(18px);}
     </div>
   </div>
 
+<!-- FEATURE FLAGS SECTION -->
+<div id="section-features" style="display:none;">
+  <div class="panel">
+    <div class="panel-head">
+      <h2><i class="fas fa-toggle-on" style="color:var(--purple);margin-right:8px;"></i>Feature Flags <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:8px;">— Toggle features ON/OFF without a new APK</span></h2>
+    </div>
+    <div class="panel-body">
+      <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#A78BFA;">
+        <i class="fas fa-lightbulb" style="margin-right:6px;"></i>
+        <strong>How it works:</strong> Build your APK once with all features coded in. Toggle them ON here — customers see changes <strong>instantly</strong>, no new APK needed!
+      </div>
+      <div id="features-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        {% set features = features_data %}
+        {% for fname, fval in features.items() %}
+        <div style="background:var(--bg2);border:1px solid {% if fval %}rgba(16,185,129,0.3){% else %}var(--border){% endif %};border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;transition:all 0.2s;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:capitalize;">{{ fname.replace('_',' ').title() }}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px;">Key: <code style="color:#A78BFA;">{{ fname }}</code></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:11px;font-weight:600;color:{% if fval %}var(--green){% else %}var(--muted){% endif %};">{% if fval %}ON{% else %}OFF{% endif %}</span>
+            <label class="toggle" title="Toggle {{ fname }}">
+              <input type="checkbox" {% if fval %}checked{% endif %} onchange="toggleFeature('{{ fname }}', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Add Custom Feature -->
+      <div style="margin-top:24px;background:linear-gradient(135deg,rgba(124,58,237,0.1),rgba(91,33,182,0.05));border:1px dashed rgba(124,58,237,0.4);border-radius:16px;padding:20px;">
+        <h3 style="font-size:14px;font-weight:700;color:#A78BFA;margin-bottom:14px;"><i class="fas fa-plus"></i> Add New Feature Flag</h3>
+        <div style="display:flex;gap:10px;">
+          <input type="text" id="new-feature-name" placeholder="feature_name (e.g. new_ui, offers_tab)" style="flex:1;">
+          <button onclick="addNewFeature()" class="btn-primary" style="width:auto;padding:9px 18px;">Add Feature</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;">Use underscores, lowercase. Then wrap your Flutter code with: <code style="color:#A78BFA;">if (FeatureService.isEnabled('feature_name'))</code></div>
+      </div>
+    </div>
+  </div>
 </div>
+
+</div><!-- /.main -->
 
 <script>
 // ── SECTION NAVIGATION ────────────────────────────────────────
 function showSection(name) {
-  ['bookings','workers','add'].forEach(s => {
+  ['bookings','workers','add','features'].forEach(s => {
     document.getElementById('section-' + s).style.display = s === name ? 'block' : 'none';
   });
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -860,6 +956,62 @@ function showToast(msg) {
   t.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:999;';
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3000);
+}
+
+// ── FEATURE FLAGS ─────────────────────────────────────────────
+async function toggleFeature(featureName, enabled) {
+  try {
+    const resp = await fetch('/api/features/update', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        secret: 'fm_sync_key_2024',
+        features: {[featureName]: enabled}
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      showToast(enabled ? '✅ ' + featureName.replace(/_/g,' ') + ' turned ON — App updated!' : '⚫ ' + featureName.replace(/_/g,' ') + ' turned OFF');
+      // Update the label next to toggle
+      const toggles = document.querySelectorAll('[onchange*="' + featureName + '"]');
+      toggles.forEach(tog => {
+        const span = tog.closest('div[style]').querySelector('span[style*="font-weight"]');
+        if (span) {
+          span.textContent = enabled ? 'ON' : 'OFF';
+          span.style.color = enabled ? 'var(--green)' : 'var(--muted)';
+        }
+        const card = tog.closest('div[style*="border-radius:14px"]');
+        if (card) card.style.borderColor = enabled ? 'rgba(16,185,129,0.3)' : 'var(--border)';
+      });
+    }
+  } catch(e) {
+    showToast('❌ Failed to update feature');
+  }
+}
+
+async function addNewFeature() {
+  const nameInput = document.getElementById('new-feature-name');
+  const name = nameInput.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  if (!name) { showToast('❌ Enter a feature name'); return; }
+  try {
+    const resp = await fetch('/api/features/update', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        secret: 'fm_sync_key_2024',
+        features: {},
+        new_features: {[name]: false}
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      showToast('✅ Feature "' + name + '" added! Reload page to see it.');
+      nameInput.value = '';
+      setTimeout(() => location.reload(), 1500);
+    }
+  } catch(e) {
+    showToast('❌ Failed to add feature');
+  }
 }
 
 // ── SOUND ALERT FOR NEW BOOKINGS ──────────────────────────────

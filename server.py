@@ -525,20 +525,8 @@ def admin():
         "release_notes":  raw_ver.get("release_notes", DEFAULT_VERSION["release_notes"]),
     }
 
-    # Fetch chat messages: try cloud first, fallback to local
-    CLOUD_URL = "https://fixmate-backend-68dy.onrender.com"
-    cloud_chats = []
-    if HAS_REQUESTS:
-        try:
-            r = req_lib.get(f"{CLOUD_URL}/api/admin/messages", timeout=5)
-            if r.status_code == 200:
-                cloud_chats = r.json()
-        except:
-            pass
-    local_chats = read_chat()
-    # Merge: cloud is source of truth; add any local-only messages
-    cloud_times = {c.get("time") for c in cloud_chats}
-    merged_chats = cloud_chats + [c for c in local_chats if c.get("time") not in cloud_times]
+    merged_chats = read_chat()
+
 
     return render_template_string(HTML_TEMPLATE, data=data, bookings=bookings,
         pending_count=pending_count, accepted_count=accepted_count,
@@ -547,7 +535,7 @@ def admin():
         features_data=load_data(FEATURES_PATH, DEFAULT_FEATURES),
         version_info=version_info,
         payments=load_data(os.path.join(BASE_DIR, 'payments.json'), []),
-        chat_messages=load_data(CHAT_HISTORY_PATH, []))
+        chat_messages=merged_chats)
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>

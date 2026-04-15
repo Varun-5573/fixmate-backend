@@ -368,12 +368,26 @@ def chat():
 @app.route('/api/admin/reply', methods=['POST'])
 def admin_reply():
     data = request.json
+    
+    # Handle Desktop UI Ticket Reply
+    if "ticket_id" in data:
+        ticket_id = data.get("ticket_id")
+        reply_msg = data.get("reply")
+        tickets = load_data(SUPPORT_PATH, [])
+        for t in tickets:
+            if t.get("id") == ticket_id:
+                t["admin_reply"] = reply_msg
+                t["status"] = "Replied"
+                break
+        save_data(SUPPORT_PATH, tickets)
+        return jsonify({"status": "ok"})
+        
+    # Handle Chatbot Reply List
     index = data.get("index")
     reply = data.get("reply")
-
     chats = read_chat()
 
-    if 0 <= index < len(chats):
+    if index is not None and 0 <= index < len(chats):
         chats[index]["admin_reply"] = reply
         write_chat(chats)
         return jsonify({"status": "ok"})

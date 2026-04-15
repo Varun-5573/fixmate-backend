@@ -38,6 +38,7 @@ class FixMateApp(ctk.CTk):
         self.bookings_cache = []
         self.workers_cache = {}
         self.tickets_cache = []
+        self.chat_messages_cache = []
         
         # --- Sidebar ---
         self.sidebar = ctk.CTkFrame(self, width=260, corner_radius=0, fg_color="#0A0F1C")
@@ -51,16 +52,17 @@ class FixMateApp(ctk.CTk):
         self.btn_bookings = self.create_nav_btn("📋 Live Bookings", "bookings", 2)
         self.btn_workers = self.create_nav_btn("👷 Manage Workers", "workers", 3)
         self.btn_tickets = self.create_nav_btn("🎫 Support Tickets", "tickets", 4)
-        self.btn_system = self.create_nav_btn("⚙️ Settings & Backups", "system", 5)
+        self.btn_chat = self.create_nav_btn("💬 Live Chat Support", "chat", 5)
+        self.btn_system = self.create_nav_btn("⚙️ Settings & Backups", "system", 6)
         
         self.btn_add_worker = ctk.CTkButton(self.sidebar, text="➕ Add Worker", font=("Inter", 16, "bold"), fg_color="#10B981", hover_color="#059669", height=45, command=self.open_add_worker)
-        self.btn_add_worker.grid(row=6, column=0, padx=20, pady=20, sticky="ew")
+        self.btn_add_worker.grid(row=7, column=0, padx=20, pady=20, sticky="ew")
         
         self.btn_export = ctk.CTkButton(self.sidebar, text="📥 Export CSV Data", font=("Inter", 16, "bold"), fg_color="#3B82F6", hover_color="#2563EB", height=45, command=self.export_csv)
-        self.btn_export.grid(row=7, column=0, padx=20, pady=0, sticky="ew")
+        self.btn_export.grid(row=8, column=0, padx=20, pady=0, sticky="ew")
         
         self.status_lbl = ctk.CTkLabel(self.sidebar, text="Server: ONLINE 🟢", text_color="#10B981", font=("Inter", 12, "bold"))
-        self.status_lbl.grid(row=8, column=0, pady=20, sticky="s")
+        self.status_lbl.grid(row=9, column=0, pady=20, sticky="s")
         
         # --- Main Frame ---
         self.main_frame = ctk.CTkFrame(self, corner_radius=15, fg_color="#111827")
@@ -163,11 +165,20 @@ class FixMateApp(ctk.CTk):
                 t = merged
 
                 curr_hash = json.dumps(b) + json.dumps(w) + json.dumps(t)
+                
+                # Fetch chatbot messages from cloud
+                chat_msgs = []
+                try:
+                    chat_msgs = requests.get(f"{self.CLOUD}/api/admin/messages", timeout=10).json()
+                except: pass
+
+                curr_hash = json.dumps(b) + json.dumps(w) + json.dumps(t) + json.dumps(chat_msgs)
                 if curr_hash != self.last_data_hash:
                     self.last_data_hash = curr_hash
                     self.bookings_cache = b
                     self.workers_cache = w
                     self.tickets_cache = t
+                    self.chat_messages_cache = chat_msgs
                     self.after(0, self.render_current_view)
             except: pass
             finally:
@@ -193,7 +204,7 @@ class FixMateApp(ctk.CTk):
 
     def render_current_view(self):
         for widget in self.content_frame.winfo_children(): widget.destroy()
-        for btn in [self.btn_dash, self.btn_bookings, self.btn_workers, self.btn_tickets, self.btn_system]: btn.configure(fg_color="transparent")
+        for btn in [self.btn_dash, self.btn_bookings, self.btn_workers, self.btn_tickets, self.btn_chat, self.btn_system]: btn.configure(fg_color="transparent")
         
         if self.current_view == "dashboard":
             self.btn_dash.configure(fg_color="#8B5CF6")
@@ -211,6 +222,10 @@ class FixMateApp(ctk.CTk):
             self.btn_tickets.configure(fg_color="#8B5CF6")
             self.title_lbl.configure(text="🎫 Customer Support Chatbot Logs")
             self.render_tickets(self.tickets_cache)
+        elif self.current_view == "chat":
+            self.btn_chat.configure(fg_color="#8B5CF6")
+            self.title_lbl.configure(text="💬 Live Chat Support")
+            self.render_chat(self.chat_messages_cache)
         else:
             self.btn_workers.configure(fg_color="#8B5CF6")
             self.title_lbl.configure(text="👷 Central Worker Hub")
@@ -327,13 +342,13 @@ class FixMateApp(ctk.CTk):
             return
         def _send():
             try:
-                # Post to CLOUD server so the customer phone can receive it
-                requests.post(f"{self.CLOUD}/api/admin_reply",
-                    json={"ticket_id": ticket_id, "reply_msg": msg}, timeout=15)
+                # Post to CLOUD server using new unified endpoint
+                requests.post(f"{self.CLOUD}/api/admin/reply",
+                    json={"ticket_id": ticket_id, "reply": msg}, timeout=15)
             except: pass
             try:
-                requests.post("http://127.0.0.1:5000/api/admin_reply",
-                    json={"ticket_id": ticket_id, "reply_msg": msg}, timeout=5)
+                requests.post("http://127.0.0.1:5000/api/admin/reply",
+                    json={"ticket_id": ticket_id, "reply": msg}, timeout=5)
             except: pass
             # Also update local backup file
             local_ticket_path = "support_local.json"
@@ -352,6 +367,63 @@ class FixMateApp(ctk.CTk):
             self.after(0, lambda: self.show_toast("✅ Reply sent to customer!"))
             self.after(500, self.get_data_bg)
         threading.Thread(target=_send, daemon=True).start()
+
+    def send_chat_reply(self, msg_index, msg):
+        """Send admin reply to a chatbot message by index"""
+        if not msg.strip():
+            self.show_toast("Please type a reply first!")
+            return
+        def _send():
+            try:
+                requests.post(f"{self.CLOUD}/api/admin/reply",
+                    json={"index": msg_index, "reply": msg}, timeout=15)
+            except: pass
+            try:
+                requests.post("http://127.0.0.1:5000/api/admin/reply",
+                    json={"index": msg_index, "reply": msg}, timeout=5)
+            except: pass
+            self.last_data_hash = ""
+            self.after(0, lambda: self.show_toast("💬 Reply sent to user!"))
+            self.after(500, self.get_data_bg)
+        threading.Thread(target=_send, daemon=True).start()
+
+    def render_chat(self, chat_messages):
+        """Render Live Chat Support tab — shows chatbot conversation history"""
+        scroll = ctk.CTkScrollableFrame(self.content_frame, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=20, pady=10)
+        filtered = [m for m in chat_messages if self.search_query in json.dumps(m).lower()] if self.search_query else chat_messages
+        if not filtered:
+            ctk.CTkLabel(scroll, text="No chatbot messages received yet.", font=("Inter", 16), text_color="#9CA3AF").pack(pady=40)
+            return
+
+        for i, msg in enumerate(reversed(filtered)):
+            real_index = len(chat_messages) - 1 - i
+            has_admin_reply = msg.get('admin_reply', '') != ''
+            border_col = "#10B981" if has_admin_reply else "#06B6D4"
+            c = ctk.CTkFrame(scroll, corner_radius=12, fg_color="#1E293B", border_width=1, border_color=border_col)
+            c.pack(fill="x", padx=10, pady=8)
+
+            inf = ctk.CTkFrame(c, fg_color="transparent")
+            inf.pack(side="left", fill="both", expand=True, padx=20, pady=15)
+
+            ctk.CTkLabel(inf, text=f"👤 User ID: {msg.get('user_id', 'Unknown')}   |   🕒 {msg.get('time', '')[:19]}",
+                         font=ctk.CTkFont(size=14, weight="bold"), text_color="#06B6D4").pack(anchor="w")
+            ctk.CTkLabel(inf, text=f"💬 User: \"{msg.get('user_message', '')}\"",
+                         font=("Inter", 14), text_color="white").pack(anchor="w", pady=(8, 2))
+            ctk.CTkLabel(inf, text=f"🤖 Bot: \"{msg.get('bot_reply', '')}\"",
+                         font=("Inter", 13, "italic"), text_color="#A78BFA").pack(anchor="w", pady=(2, 8))
+
+            if has_admin_reply:
+                ctk.CTkLabel(inf, text=f"✅ Admin Reply: \"{msg.get('admin_reply')}\"",
+                             font=("Inter", 13, "bold"), text_color="#10B981").pack(anchor="w")
+            else:
+                acts = ctk.CTkFrame(c, fg_color="transparent")
+                acts.pack(side="right", padx=15, pady=15)
+                reply_ent = ctk.CTkEntry(acts, placeholder_text="Type reply to user...", width=250)
+                reply_ent.pack(side="left", padx=10)
+                ctk.CTkButton(acts, text="📤 Send Reply", fg_color="#10B981", hover_color="#059669",
+                              font=("Inter", 13, "bold"),
+                              command=lambda idx=real_index, e=reply_ent: self.send_chat_reply(idx, e.get())).pack(side="left")
 
 
     def render_workers(self, workers_dict):

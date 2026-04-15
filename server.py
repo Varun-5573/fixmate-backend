@@ -7,7 +7,7 @@ try:
 except:
     HAS_REQUESTS = False
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = 'fixmate_secret_2024'
 CORS(app)
 
@@ -20,6 +20,7 @@ DB_PATH = os.path.join(BASE_DIR, 'database.json')
 BOOKINGS_PATH = os.path.join(BASE_DIR, 'bookings.json')
 PROFILE_PATH = os.path.join(BASE_DIR, 'profile.json')
 SUPPORT_PATH = os.path.join(BASE_DIR, 'support.json')
+VERSION_PATH = os.path.join(BASE_DIR, 'app_version.json')
 
 # Cloud sync config
 CLOUD_URL = 'https://fixmate-backend-68dy.onrender.com'
@@ -78,6 +79,31 @@ def get_workers():
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "alive"})
+
+# Default version config — create file if it doesn't exist
+DEFAULT_VERSION = {
+    "version": "1.0.0",
+    "is_mandatory": False,
+    "download_url": "https://github.com/yourusername/fixmate/releases/latest",
+    "release_notes": "Bug fixes and performance improvements!"
+}
+
+@app.route('/api/version', methods=['GET', 'POST'])
+def app_version():
+    """GET: Flutter app checks this. POST (with secret): Admin updates version."""
+    if request.method == 'POST':
+        req = request.json or {}
+        if req.get('secret') != SYNC_SECRET:
+            return jsonify({'error': 'Unauthorized'}), 403
+        version_data = {
+            "version": req.get('version', '1.0.0'),
+            "is_mandatory": req.get('is_mandatory', False),
+            "download_url": req.get('download_url', DEFAULT_VERSION['download_url']),
+            "release_notes": req.get('release_notes', DEFAULT_VERSION['release_notes'])
+        }
+        save_data(VERSION_PATH, version_data)
+        return jsonify({'success': True, 'data': version_data})
+    return jsonify(load_data(VERSION_PATH, DEFAULT_VERSION))
 
 @app.route('/api/book', methods=['POST'])
 def create_booking():

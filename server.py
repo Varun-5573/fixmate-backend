@@ -328,12 +328,49 @@ def get_bot_reply(message):
         return "FixMate uses your GPS to find nearby workers. Make sure your location permission is turned on for the best experience!"
     return "I'm still learning! If you have a specific problem, please click 'Contact Human Support' and our team will help you manually."
 
+CHAT_HISTORY_PATH = os.path.join(BASE_DIR, 'chat_history.json')
+
 @app.route('/api/chatbot', methods=['POST'])
 def chatbot_route():
     data = request.json or {}
     user_message = data.get("message", "")
+    phone = data.get("phone", "Unknown")
+    customer = data.get("customer", "Guest")
+    
     reply = get_bot_reply(user_message)
+    
+    # Store to history
+    history = load_data(CHAT_HISTORY_PATH, [])
+    history.append({
+        "id": str(uuid.uuid4())[:8],
+        "phone": phone,
+        "customer": customer,
+        "user": user_message,
+        "bot": reply,
+        "admin": None,
+        "timestamp": datetime.datetime.now().isoformat()
+    })
+    save_data(CHAT_HISTORY_PATH, history)
+    
     return jsonify({"reply": reply, "timestamp": datetime.datetime.now().isoformat()})
+
+@app.route('/api/messages', methods=['GET'])
+def get_messages():
+    return jsonify(load_data(CHAT_HISTORY_PATH, []))
+
+@app.route('/api/chatbot-admin-reply', methods=['POST'])
+def chatbot_admin_reply():
+    data = request.json or {}
+    msg_id = data.get('id')
+    admin_reply = data.get('admin_reply')
+    
+    history = load_data(CHAT_HISTORY_PATH, [])
+    for h in history:
+        if h.get('id') == msg_id:
+            h['admin'] = admin_reply
+            break
+    save_data(CHAT_HISTORY_PATH, history)
+    return jsonify({"success": True})
 
 @app.route('/api/admin_reply', methods=['POST'])
 def admin_reply_route():
@@ -462,7 +499,8 @@ def admin():
         online_workers=online_workers, services_count=services_count,
         features_data=load_data(FEATURES_PATH, DEFAULT_FEATURES),
         version_info=version_info,
-        payments=load_data(os.path.join(BASE_DIR, 'payments.json'), []))
+        payments=load_data(os.path.join(BASE_DIR, 'payments.json'), []),
+        chat_messages=load_data(CHAT_HISTORY_PATH, []))
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -659,6 +697,9 @@ input:checked+.slider:before{transform:translateX(18px);}
     </a>
     <a class="nav-item" onclick="showSection('payments')">
       <i class="fas fa-wallet"></i> Payments
+    </a>
+    <a class="nav-item" onclick="showSection('chat')">
+      <i class="fas fa-comments"></i> Live Chat Support
     </a>
     <a class="nav-item" href="/export/bookings">
       <i class="fas fa-file-csv"></i> Export CSV
@@ -1081,12 +1122,51 @@ input:checked+.slider:before{transform:translateX(18px);}
   </div>
 </div>
 
+<!-- CHATBOT INBOX -->
+<div id="section-chat" style="display:none;">
+    <div class="panel">
+        <div class="panel-head">
+            <h2 style="color:var(--cyan);"><i class="fas fa-comments"></i> Smart Support Inbox</h2>
+        </div>
+        <div class="panel-body">
+            {% if chat_messages|length == 0 %}
+                <p style="color:var(--muted);text-align:center;padding:20px;">No messages received through Chatbot yet.</p>
+            {% else %}
+                <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+                {% for msg in chat_messages|reverse %}
+                <div class="booking-card" style="border-left-color:var(--cyan);display:flex;flex-direction:column;gap:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:700;font-size:14px;">{{ msg.customer }} ({{ msg.phone }})</span>
+                        <span style="font-size:10px;color:var(--muted);">{{ msg.timestamp.split('T')[0] }} {{ msg.timestamp.split('T')[1][:5] }}</span>
+                    </div>
+                    <div style="background:var(--card);padding:10px;border-radius:10px;">
+                        <span style="font-size:11px;color:var(--cyan);font-weight:700;">USER:</span> <span style="font-size:13px;color:var(--text);">{{ msg.user }}</span><br>
+                        <span style="font-size:11px;color:var(--yellow);font-weight:700;margin-top:6px;display:block;">BOT:</span> <span style="font-size:13px;color:var(--text);">{{ msg.bot }}</span>
+                    </div>
+                    {% if msg.admin %}
+                    <div style="background:rgba(16,185,129,0.1);border-left:3px solid var(--green);padding:10px;border-radius:8px;">
+                        <span style="font-size:11px;color:var(--green);font-weight:700;">ADMIN REPLY:</span> <span style="font-size:13px;color:var(--text);">{{ msg.admin }}</span>
+                    </div>
+                    {% else %}
+                    <div style="display:flex;gap:8px;margin-top:4px;">
+                        <input type="text" id="adminReply_{{ msg.id }}" placeholder="Type manual reply..." style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;">
+                        <button onclick="sendChatbotAdminReply('{{ msg.id }}')" style="background:var(--green);color:white;border:none;border-radius:8px;padding:0 16px;cursor:pointer;font-weight:600;font-size:12px;"><i class="fas fa-paper-plane"></i> Reply</button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 </div><!-- /.main -->
 
 <script>
 // ── SECTION NAVIGATION ────────────────────────────────────────
 function showSection(name) {
-  ['bookings','workers','add','features','version', 'payments'].forEach(s => {
+  ['bookings','workers','add','features','version', 'payments', 'chat'].forEach(s => {
     document.getElementById('section-' + s).style.display = s === name ? 'block' : 'none';
   });
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));

@@ -1465,6 +1465,8 @@ def keep_awake():
         except:
             pass
 
+# Start background waker immediately for Gunicorn environments
+threading.Thread(target=keep_awake, daemon=True).start()
+
 if __name__ == '__main__':
-    threading.Thread(target=keep_awake, daemon=True).start()
     socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)

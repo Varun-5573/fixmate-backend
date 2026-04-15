@@ -346,10 +346,14 @@ def write_chat(data):
 @app.route('/api/chat', methods=['POST'])
 def chat():
     data = request.json
-    user_msg = data.get("message")
+    user_msg = data.get("message", "")
     user_id = data.get("user_id", "guest")
 
-    bot_reply = get_bot_reply(user_msg)
+    # Instant reply for first message
+    if user_msg.lower().strip() == "hi":
+        bot_reply = "Hello! How can I help you today?"
+    else:
+        bot_reply = get_bot_reply(user_msg)
 
     chats = read_chat()
 

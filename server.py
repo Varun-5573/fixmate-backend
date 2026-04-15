@@ -292,6 +292,28 @@ def handle_support():
         return jsonify({"success": True, "reply": reply})
     return jsonify(tickets)
 
+@app.route('/api/payment', methods=['POST'])
+def save_payment():
+    data = request.json
+    if not data: return jsonify({"error": "No data"}), 400
+    
+    payments = load_data(os.path.join(BASE_DIR, 'payments.json'), [])
+    new_payment = {
+        "id": "PAY-" + str(uuid.uuid4())[:6].upper(),
+        "booking_id": data.get('booking_id'),
+        "amount": data.get('amount', 0),
+        "customer": data.get('customer', 'User'),
+        "date": datetime.datetime.now().strftime("%Y-%m-%d %I:%M %p"),
+        "status": data.get('status', 'Pending')
+    }
+    payments.insert(0, new_payment)
+    save_data(os.path.join(BASE_DIR, 'payments.json'), payments)
+    return jsonify({"success": True, "payment_id": new_payment["id"]})
+
+@app.route('/api/payments', methods=['GET'])
+def get_payments():
+    return jsonify(load_data(os.path.join(BASE_DIR, 'payments.json'), []))
+
 @app.route('/api/admin_reply', methods=['POST'])
 def admin_reply_route():
     """Admin sends custom reply to customer - phone polls and displays it"""
@@ -418,7 +440,8 @@ def admin():
         rejected_count=rejected_count, total_workers=total_workers,
         online_workers=online_workers, services_count=services_count,
         features_data=load_data(FEATURES_PATH, DEFAULT_FEATURES),
-        version_info=version_info)
+        version_info=version_info,
+        payments=load_data(os.path.join(BASE_DIR, 'payments.json'), []))
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -612,6 +635,9 @@ input:checked+.slider:before{transform:translateX(18px);}
     </a>
     <a class="nav-item" onclick="showSection('version')">
       <i class="fas fa-rocket"></i> Version Control
+    </a>
+    <a class="nav-item" onclick="showSection('payments')">
+      <i class="fas fa-wallet"></i> Payments
     </a>
     <a class="nav-item" href="/export/bookings">
       <i class="fas fa-file-csv"></i> Export CSV
@@ -989,12 +1015,57 @@ input:checked+.slider:before{transform:translateX(18px);}
   </div>
 </div>
 
+<!-- PAYMENTS SECTION -->
+<div id="section-payments" style="display:none;">
+  <div class="panel">
+    <div class="panel-head">
+      <h2><i class="fas fa-wallet" style="color:var(--purple);margin-right:8px;"></i>Transaction History</h2>
+      <a href="/api/payments" target="_blank" class="export-btn" style="background:var(--card2);"><i class="fas fa-code"></i> View JSON</a>
+    </div>
+    <div class="panel-body">
+      <div id="payments-list">
+        {% if payments %}
+          <table style="width:100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+              <tr style="text-align: left; background: var(--bg2); color: var(--muted);">
+                <th style="padding: 12px;">ID</th>
+                <th style="padding: 12px;">Date</th>
+                <th style="padding: 12px;">Customer</th>
+                <th style="padding: 12px;">Booking</th>
+                <th style="padding: 12px;">Amount</th>
+                <th style="padding: 12px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in payments %}
+                <tr style="border-bottom: 1px solid var(--border);">
+                  <td style="padding: 12px; font-family: monospace; color: var(--purple);">{{ p.id }}</td>
+                  <td style="padding: 12px; color: var(--muted);">{{ p.date }}</td>
+                  <td style="padding: 12px; font-weight: 600;">{{ p.customer }}</td>
+                  <td style="padding: 12px; color: var(--muted);">{{ p.booking_id }}</td>
+                  <td style="padding: 12px; font-weight: 700; color: var(--green);">₹{{ p.amount }}</td>
+                  <td style="padding: 12px;"><span class="badge Accepted">{{ p.status }}</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">
+            <i class="fas fa-receipt"></i>
+            <p>No payments recorded yet.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /.main -->
 
 <script>
 // ── SECTION NAVIGATION ────────────────────────────────────────
 function showSection(name) {
-  ['bookings','workers','add','features','version'].forEach(s => {
+  ['bookings','workers','add','features','version', 'payments'].forEach(s => {
     document.getElementById('section-' + s).style.display = s === name ? 'block' : 'none';
   });
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));

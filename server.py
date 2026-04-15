@@ -328,49 +328,65 @@ def get_bot_reply(message):
         return "FixMate uses your GPS to find nearby workers. Make sure your location permission is turned on for the best experience!"
     return "I'm still learning! If you have a specific problem, please click 'Contact Human Support' and our team will help you manually."
 
-CHAT_HISTORY_PATH = os.path.join(BASE_DIR, 'chat_history.json')
+CHAT_FILE = "chat_history.json"
 
-@app.route('/api/chatbot', methods=['POST'])
-def chatbot_route():
-    data = request.json or {}
-    user_message = data.get("message", "")
-    phone = data.get("phone", "Unknown")
-    customer = data.get("customer", "Guest")
-    
-    reply = get_bot_reply(user_message)
-    
-    # Store to history
-    history = load_data(CHAT_HISTORY_PATH, [])
-    history.append({
-        "id": str(uuid.uuid4())[:8],
-        "phone": phone,
-        "customer": customer,
-        "user": user_message,
-        "bot": reply,
-        "admin": None,
-        "timestamp": datetime.datetime.now().isoformat()
+def read_chat():
+    try:
+        with open(os.path.join(BASE_DIR, CHAT_FILE), "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+def write_chat(data):
+    with open(os.path.join(BASE_DIR, CHAT_FILE), "w") as f:
+        json.dump(data, f, indent=4)
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.json
+    user_msg = data.get("message")
+    user_id = data.get("user_id", "guest")
+
+    bot_reply = get_bot_reply(user_msg)
+
+    chats = read_chat()
+
+    chats.append({
+        "user_id": user_id,
+        "user_message": user_msg,
+        "bot_reply": bot_reply,
+        "admin_reply": "",
+        "time": str(datetime.datetime.now())
     })
-    save_data(CHAT_HISTORY_PATH, history)
-    
-    return jsonify({"reply": reply, "timestamp": datetime.datetime.now().isoformat()})
 
-@app.route('/api/messages', methods=['GET'])
+    write_chat(chats)
+
+    return jsonify({"reply": bot_reply})
+
+@app.route('/api/admin/reply', methods=['POST'])
+def admin_reply():
+    data = request.json
+    index = data.get("index")
+    reply = data.get("reply")
+
+    chats = read_chat()
+
+    if 0 <= index < len(chats):
+        chats[index]["admin_reply"] = reply
+        write_chat(chats)
+        return jsonify({"status": "ok"})
+
+    return jsonify({"status": "error"})
+
+@app.route('/api/admin/messages', methods=['GET'])
 def get_messages():
-    return jsonify(load_data(CHAT_HISTORY_PATH, []))
+    return jsonify(read_chat())
 
-@app.route('/api/chatbot-admin-reply', methods=['POST'])
-def chatbot_admin_reply():
-    data = request.json or {}
-    msg_id = data.get('id')
-    admin_reply = data.get('admin_reply')
-    
-    history = load_data(CHAT_HISTORY_PATH, [])
-    for h in history:
-        if h.get('id') == msg_id:
-            h['admin'] = admin_reply
-            break
-    save_data(CHAT_HISTORY_PATH, history)
-    return jsonify({"success": True})
+@app.route('/api/user/messages/<user_id>', methods=['GET'])
+def user_messages(user_id):
+    chats = read_chat()
+    user_chats = [c for c in chats if c.get("user_id") == user_id]
+    return jsonify(user_chats)
 
 @app.route('/api/admin_reply', methods=['POST'])
 def admin_reply_route():
@@ -1133,24 +1149,24 @@ input:checked+.slider:before{transform:translateX(18px);}
                 <p style="color:var(--muted);text-align:center;padding:20px;">No messages received through Chatbot yet.</p>
             {% else %}
                 <div style="display:grid;grid-template-columns:1fr;gap:12px;">
-                {% for msg in chat_messages|reverse %}
+                {% for msg in chat_messages %}
                 <div class="booking-card" style="border-left-color:var(--cyan);display:flex;flex-direction:column;gap:8px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-weight:700;font-size:14px;">{{ msg.customer }} ({{ msg.phone }})</span>
-                        <span style="font-size:10px;color:var(--muted);">{{ msg.timestamp.split('T')[0] }} {{ msg.timestamp.split('T')[1][:5] }}</span>
+                        <span style="font-weight:700;font-size:14px;">User: {{ msg.user_id }}</span>
+                        <span style="font-size:10px;color:var(--muted);">{{ msg.time }}</span>
                     </div>
                     <div style="background:var(--card);padding:10px;border-radius:10px;">
-                        <span style="font-size:11px;color:var(--cyan);font-weight:700;">USER:</span> <span style="font-size:13px;color:var(--text);">{{ msg.user }}</span><br>
-                        <span style="font-size:11px;color:var(--yellow);font-weight:700;margin-top:6px;display:block;">BOT:</span> <span style="font-size:13px;color:var(--text);">{{ msg.bot }}</span>
+                        <span style="font-size:11px;color:var(--cyan);font-weight:700;">USER:</span> <span style="font-size:13px;color:var(--text);">{{ msg.user_message }}</span><br>
+                        <span style="font-size:11px;color:var(--yellow);font-weight:700;margin-top:6px;display:block;">BOT:</span> <span style="font-size:13px;color:var(--text);">{{ msg.bot_reply }}</span>
                     </div>
-                    {% if msg.admin %}
+                    {% if msg.admin_reply != "" %}
                     <div style="background:rgba(16,185,129,0.1);border-left:3px solid var(--green);padding:10px;border-radius:8px;">
-                        <span style="font-size:11px;color:var(--green);font-weight:700;">ADMIN REPLY:</span> <span style="font-size:13px;color:var(--text);">{{ msg.admin }}</span>
+                        <span style="font-size:11px;color:var(--green);font-weight:700;">ADMIN REPLY:</span> <span style="font-size:13px;color:var(--text);">{{ msg.admin_reply }}</span>
                     </div>
                     {% else %}
                     <div style="display:flex;gap:8px;margin-top:4px;">
-                        <input type="text" id="adminReply_{{ msg.id }}" placeholder="Type manual reply..." style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;">
-                        <button onclick="sendChatbotAdminReply('{{ msg.id }}')" style="background:var(--green);color:white;border:none;border-radius:8px;padding:0 16px;cursor:pointer;font-weight:600;font-size:12px;"><i class="fas fa-paper-plane"></i> Reply</button>
+                        <input type="text" id="adminReply_{{ loop.index0 }}" placeholder="Type manual reply..." style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;">
+                        <button onclick="sendChatbotAdminReply({{ loop.index0 }})" style="background:var(--green);color:white;border:none;border-radius:8px;padding:0 16px;cursor:pointer;font-weight:600;font-size:12px;"><i class="fas fa-paper-plane"></i> Reply</button>
                     </div>
                     {% endif %}
                 </div>
@@ -1289,6 +1305,29 @@ async function addNewFeature() {
     }
   } catch(e) {
     showToast('❌ Failed to add feature');
+  }
+}
+
+// ── ADMIN CHATBOT REPLY FUNCTION ──────────────────────────────
+async function sendChatbotAdminReply(msgIndex) {
+  const replyInput = document.getElementById('adminReply_' + msgIndex).value;
+  if (!replyInput) return alert('Cannot send an empty reply!');
+  
+  try {
+    const res = await fetch('/api/admin/reply', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({index: msgIndex, reply: replyInput})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      alert('Reply sent successfully!');
+      location.reload();
+    } else {
+      alert('Failed: ' + (data.status || 'unknown error'));
+    }
+  } catch(e) {
+    alert('Error sending reply.');
   }
 }
 

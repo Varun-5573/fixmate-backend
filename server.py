@@ -88,6 +88,34 @@ DEFAULT_VERSION = {
     "release_notes": "Bug fixes and performance improvements!"
 }
 
+@app.route('/update')
+def update_page():
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Download FixMate Update</title>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #f4f4f9; padding: 40px 20px; }
+            .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+            h2 { color: #333; }
+            p { color: #666; margin-bottom: 20px; }
+            .btn { display: inline-block; background-color: #6C63FF; color: white; padding: 14px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 10px rgba(108, 99, 255, 0.3); }
+            .btn:hover { background-color: #5b54d6; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>🚚 FixMate Update</h2>
+            <p>Click the button below to download the latest version of the app.</p>
+            <a href="/static/app-release.apk" class="btn" download>Download APK</a>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
 @app.route('/api/version', methods=['GET', 'POST'])
 def app_version():
     """GET: Flutter app checks this. POST (with secret): Admin updates version."""

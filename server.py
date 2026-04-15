@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template_string, redirect, url_for, flash, Response
+from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import json, os, uuid, datetime, random, csv, io, threading
 try:
@@ -10,6 +11,7 @@ except:
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = 'fixmate_secret_2024'
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 import sys
 if getattr(sys, 'frozen', False):
@@ -1398,5 +1400,44 @@ setTimeout(() => {
 </html>
 """
 
+@socketio.on('send_message')
+def handle_message(data):
+    user_id = data.get('user_id', 'guest')
+    message = data.get('message', '')
+
+    bot_reply = get_bot_reply(message)
+    chats = read_chat()
+    chats.append({
+        "user_id": user_id,
+        "user_message": message,
+        "bot_reply": bot_reply,
+        "admin_reply": "",
+        "time": str(datetime.datetime.now())
+    })
+    write_chat(chats)
+
+    emit('receive_message', {
+        "user_id": user_id,
+        "message": bot_reply,
+        "sender": "bot"
+    }, broadcast=True)
+
+@socketio.on('admin_reply')
+def handle_admin_reply(data):
+    user_id = data.get('user_id')
+    message = data.get('message')
+    index = data.get('index')
+    
+    chats = read_chat()
+    if index is not None and 0 <= index < len(chats):
+        chats[index]["admin_reply"] = message
+        write_chat(chats)
+
+    emit('receive_message', {
+        "user_id": user_id,
+        "message": message,
+        "sender": "admin"
+    }, broadcast=True)
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False)

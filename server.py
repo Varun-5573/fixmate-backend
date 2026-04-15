@@ -1456,5 +1456,15 @@ def handle_admin_reply(data):
         "sender": "admin"
     }, broadcast=True)
 
+def keep_awake():
+    import time
+    while True:
+        try:
+            time.sleep(600) # Ping every 10 minutes to prevent Render Sleep
+            req_lib.get("https://fixmate-backend-68dy.onrender.com/")
+        except:
+            pass
+
 if __name__ == '__main__':
+    threading.Thread(target=keep_awake, daemon=True).start()
     socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)

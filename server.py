@@ -403,11 +403,22 @@ def admin():
     total_workers = sum(len(v) for v in data.values())
     online_workers = sum(1 for v in data.values() for w in v if w.get('isOnline'))
     services_count = {s: len(ws) for s, ws in data.items()}
+
+    # Build version_info for the Version Control panel
+    raw_ver = load_data(VERSION_PATH, DEFAULT_VERSION)
+    version_info = {
+        "latest_version": raw_ver.get("version", "1.0.0"),
+        "force_update":   raw_ver.get("is_mandatory", False),
+        "apk_url":        raw_ver.get("download_url", DEFAULT_VERSION["download_url"]),
+        "release_notes":  raw_ver.get("release_notes", DEFAULT_VERSION["release_notes"]),
+    }
+
     return render_template_string(HTML_TEMPLATE, data=data, bookings=bookings,
         pending_count=pending_count, accepted_count=accepted_count,
         rejected_count=rejected_count, total_workers=total_workers,
         online_workers=online_workers, services_count=services_count,
-        features_data=load_data(FEATURES_PATH, DEFAULT_FEATURES))
+        features_data=load_data(FEATURES_PATH, DEFAULT_FEATURES),
+        version_info=version_info)
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -598,6 +609,9 @@ input:checked+.slider:before{transform:translateX(18px);}
     </a>
     <a class="nav-item" onclick="showSection('features')">
       <i class="fas fa-toggle-on"></i> Feature Flags
+    </a>
+    <a class="nav-item" onclick="showSection('version')">
+      <i class="fas fa-rocket"></i> Version Control
     </a>
     <a class="nav-item" href="/export/bookings">
       <i class="fas fa-file-csv"></i> Export CSV
@@ -883,12 +897,104 @@ input:checked+.slider:before{transform:translateX(18px);}
   </div>
 </div>
 
+<!-- VERSION CONTROL SECTION -->
+<div id="section-version" style="display:none;">
+  <div class="panel" style="max-width:680px;margin:0 auto;">
+    <div class="panel-head">
+      <h2><i class="fas fa-rocket" style="color:var(--purple);margin-right:8px;"></i>Version Control <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:8px;">— Push app updates to users instantly</span></h2>
+    </div>
+    <div class="panel-body">
+
+      <!-- Live Status Card -->
+      <div style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(6,182,212,0.05));border:1px solid rgba(16,185,129,0.25);border-radius:16px;padding:20px;margin-bottom:24px;">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">📡 Current Live Status</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;">
+          <div>
+            <div style="font-size:26px;font-weight:800;color:var(--green);" id="vc-current">{{ version_info.latest_version }}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Latest Version</div>
+          </div>
+          <div>
+            <div style="font-size:18px;font-weight:700;" id="vc-force-status" style="color:{{ 'var(--red)' if version_info.force_update else 'var(--green)' }}">{{ '🔴 FORCED' if version_info.force_update else '🟢 Optional' }}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Update Type</div>
+          </div>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--blue);word-break:break-all;">APK Ready ✅</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Download Link</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Update Form -->
+      <div style="background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(91,33,182,0.04));border:1px dashed rgba(124,58,237,0.35);border-radius:16px;padding:22px;">
+        <h3 style="font-size:14px;font-weight:700;color:#A78BFA;margin-bottom:16px;"><i class="fas fa-edit"></i> Push New Version</h3>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;">📌 New Version Number</label>
+            <input type="text" id="vc-version" placeholder="e.g. 2.0.0" value="{{ version_info.latest_version }}" style="width:100%;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;">🔗 APK Download URL</label>
+            <input type="text" id="vc-url" placeholder="https://..." value="{{ version_info.apk_url }}" style="width:100%;">
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;">📝 Release Notes (shown in popup)</label>
+          <textarea id="vc-notes" rows="2" placeholder="What's new in this version..." style="width:100%;resize:vertical;">{{ version_info.release_notes }}</textarea>
+        </div>
+
+        <!-- Force Toggle -->
+        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:14px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:var(--red);">🔴 Force Update (No Skip)</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px;">Like Free Fire — user CANNOT use app until they update</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="vc-force" {{ 'checked' if version_info.force_update else '' }}>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <button onclick="updateVersion()" class="btn-primary" style="font-size:14px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <i class="fas fa-rocket"></i> Push Update to All Users
+        </button>
+
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">
+          <i class="fas fa-info-circle" style="color:var(--blue);"></i>
+          Changes apply instantly — next time users open the app they'll see the update popup
+        </div>
+      </div>
+
+      <!-- How it works -->
+      <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;">
+          <div style="font-size:24px;margin-bottom:6px;">1️⃣</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;">Push Version</div>
+          <div style="font-size:11px;color:var(--muted);">Set version & click Push</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;">
+          <div style="font-size:24px;margin-bottom:6px;">2️⃣</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;">User Opens App</div>
+          <div style="font-size:11px;color:var(--muted);">Popup appears on splash</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;">
+          <div style="font-size:24px;margin-bottom:6px;">3️⃣</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;">User Updates</div>
+          <div style="font-size:11px;color:var(--muted);">Downloads & installs APK</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 </div><!-- /.main -->
 
 <script>
 // ── SECTION NAVIGATION ────────────────────────────────────────
 function showSection(name) {
-  ['bookings','workers','add','features'].forEach(s => {
+  ['bookings','workers','add','features','version'].forEach(s => {
     document.getElementById('section-' + s).style.display = s === name ? 'block' : 'none';
   });
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -1011,6 +1117,39 @@ async function addNewFeature() {
     }
   } catch(e) {
     showToast('❌ Failed to add feature');
+  }
+}
+
+// ── VERSION CONTROL ───────────────────────────────────────────
+async function updateVersion() {
+  const version  = document.getElementById('vc-version').value.trim();
+  const force    = document.getElementById('vc-force').checked;
+  const url      = document.getElementById('vc-url').value.trim();
+  const notes    = document.getElementById('vc-notes').value.trim();
+  if (!version) { showToast('❌ Enter a version number'); return; }
+  try {
+    const resp = await fetch('/api/version', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        secret: 'fm_sync_key_2024',
+        version: version,
+        is_mandatory: force,
+        download_url: url,
+        release_notes: notes
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      showToast('🚀 Version updated to ' + version + (force ? ' (FORCED)' : ' (Optional)'));
+      document.getElementById('vc-current').textContent = version;
+      document.getElementById('vc-force-status').textContent = force ? '🔴 FORCED' : '🟢 Optional';
+      document.getElementById('vc-force-status').style.color = force ? 'var(--red)' : 'var(--green)';
+    } else {
+      showToast('❌ Update failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch(e) {
+    showToast('❌ Network error: ' + e.message);
   }
 }
 
